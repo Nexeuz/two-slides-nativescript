@@ -1,15 +1,15 @@
 require("nativescript-dom");
-import * as app from "application";
-import * as Platform from "platform";
+import * as app from "@nativescript/core/application";
+import * as Platform from "@nativescript/core/platform";
 import * as utils from "@nativescript/core/utils/utils";
-import { AbsoluteLayout } from "ui/layouts/absolute-layout";
-import { StackLayout } from "ui/layouts/stack-layout";
-import { View } from "ui/core/view";
-import { Button } from "ui/button";
-import { Label } from "ui/label";
-import * as AnimationModule from "ui/animation";
-import * as gestures from "ui/gestures";
-import { AnimationCurve, Orientation } from "ui/enums";
+import { AbsoluteLayout } from "@nativescript/core/ui/layouts/absolute-layout";
+import { StackLayout } from "@nativescript/core/ui/layouts/stack-layout";
+import { View } from "@nativescript/core/ui/core/view";
+import { Button } from "@nativescript/core/ui/button";
+import { Label } from "@nativescript/core/ui/label";
+import * as AnimationModule from "@nativescript/core/ui/animation";
+import * as gestures from "@nativescript/core/ui/gestures";
+import { AnimationCurve, Orientation } from "@nativescript/core/ui/enums";
 
 declare const android: any;
 declare const com: any;
@@ -62,6 +62,10 @@ export class SlideContainer extends AbsoluteLayout {
     private _pageIndicators: boolean;
     private _slideMap: ISlideMap[];
     private _slideWidth: string;
+    private _shrinkSliderPercent = 100;
+    private _gapBetweenSliders: number;
+    private _eventCancelledByUser = false;
+    private _twoOrMoreSlides = false;
 
     public static startEvent = "start";
     public static changedEvent = "changed";
@@ -93,6 +97,29 @@ export class SlideContainer extends AbsoluteLayout {
         return !!this.currentPanel && !!this.currentPanel.left;
     }
 
+    get shrinkSliderPercent(): number {
+        return this._shrinkSliderPercent;
+    }
+    set shrinkSliderPercent(value: number) {
+        if (value) {
+            this._shrinkSliderPercent = value;
+        } else {
+            this._shrinkSliderPercent = 100;
+        }
+    }
+
+    get gapBetweenSliders(): number {
+        return this._gapBetweenSliders;
+    }
+
+    set gapBetweenSliders(value: number) {
+        if (value) {
+            this._gapBetweenSliders = value;
+        } else {
+            this._gapBetweenSliders = 0;
+        }
+    }
+
     get loop() {
         return this._loop;
     }
@@ -114,6 +141,12 @@ export class SlideContainer extends AbsoluteLayout {
         if (this._loaded && this.currentPanel.panel !== undefined) {
             if (value === true) {
                 this.currentPanel.panel.off("pan");
+                if (
+                    this.currentPanel.right &&
+                    this.shrinkSliderPercent !== 100
+                ) {
+                    this.currentPanel.right.panel.off("pan");
+                }
             } else if (value === false) {
                 this.applySwipe(this.pageWidth);
             }
@@ -144,6 +177,12 @@ export class SlideContainer extends AbsoluteLayout {
     }
     set slideWidth(width: string) {
         this._slideWidth = width;
+    }
+
+    private get twoSliders() {
+        return this.shrinkSliderPercent !== 100
+            ? true
+            : false && !!this.gapBetweenSliders;
     }
 
     constructor() {
@@ -200,7 +239,7 @@ export class SlideContainer extends AbsoluteLayout {
 
                 // push each LayoutChild from SlideContainer i.e: Slide
                 this.eachLayoutChild((view: View) => {
-                    if (view instanceof StackLayout) {
+                    if (view instanceof Slide) {
                         // change heaig
                         AbsoluteLayout.setLeft(view, this.pageWidth);
                         view.width = this.pageWidth;
@@ -220,18 +259,18 @@ export class SlideContainer extends AbsoluteLayout {
                     this.positionPanels(this.currentPanel);
 
                     if (this.disablePan === false) {
-                       this.applySwipe(this.pageWidth);
+                        this.applySwipe(this.pageWidth);
                     }
                     if (app.ios) {
                         this.ios.clipsToBound = true;
                     }
-                    //handles application orientation change
+                    //handles phone orientation change
                     app.on(
                         app.orientationChangedEvent,
                         (args: app.OrientationChangedEventData) => {
                             //event and page orientation didn't seem to alwasy be on the same page so setting it in the time out addresses this.
                             setTimeout(() => {
-                                // console.log('orientationChangedEvent');
+                                console.log("orientationChangedEvent");
                                 this.width = parseInt(this.slideWidth);
                                 this.eachLayoutChild((view: View) => {
                                     if (view instanceof StackLayout) {
@@ -240,7 +279,7 @@ export class SlideContainer extends AbsoluteLayout {
                                             this.pageWidth
                                         );
                                         view.width = this.pageWidth;
-                                        console.log(view.width, 'width')
+                                        // console.log(view.width, 'width')
                                     }
                                 });
 
@@ -280,7 +319,7 @@ export class SlideContainer extends AbsoluteLayout {
         this.direction = direction.left;
         this.transitioning = true;
         this.triggerStartEvent();
-        this.showRightSlide(this.currentPanel).then(() => {
+        this.showRightSlide(this._slideMap).then(() => {
             this.setupPanel(this.currentPanel.right);
             this.triggerChangeEventRightToLeft();
         });
@@ -294,7 +333,7 @@ export class SlideContainer extends AbsoluteLayout {
         this.direction = direction.right;
         this.transitioning = true;
         this.triggerStartEvent();
-        this.showLeftSlide(this.currentPanel).then(() => {
+        this.showLeftSlide(this._slideMap).then(() => {
             this.setupPanel(this.currentPanel.left);
             this.triggerChangeEventLeftToRight();
         });
@@ -319,15 +358,54 @@ export class SlideContainer extends AbsoluteLayout {
     }
 
     private positionPanels(panel: ISlideMap) {
+        console.log("entro position panels", panel.index);
         // sets up each panel so that they are positioned to transition either way.
-        panel.panel.translateX = -this.pageWidth;
-       // panel.panel.width = this.pageWidth * 100 / 30;
+        let panelLeftGap = 0;
+        let addPercentage = 0;
+        if (this.shrinkSliderPercent !== 100) {
+            panel.panel.width = (this.pageWidth / 100) * this.shrinkSliderPercent;
+            if (
+                this._slideMap[this._slideMap.length - 1].index === panel.index
+            ) {
+
+                // align right when is last slide
+                addPercentage =
+                    (this.pageWidth / 100) *
+                    (100 - this.shrinkSliderPercent + this.gapBetweenSliders);
+
+                if (panel.left !== null) {
+                    panelLeftGap =
+                        (this.pageWidth / 100) *
+                        ((100 - this.shrinkSliderPercent) * 2);
+                } else {
+                    panelLeftGap = 0;
+                }
+            }
+
+            if(app.ios) {
+                if(this._slideMap[this.currentIndex+1].right) {
+                    this._slideMap[this.currentIndex+1].right.panel.translateX = 0;
+                }
+            }
+        }
+        console.log('addPercentage ', addPercentage, panel.index)
+        panel.panel.translateX = -this.pageWidth + addPercentage;
         if (panel.left != null) {
-           panel.left.panel.translateX = -this.pageWidth;
+            console.log(panel.left.panel.width, "width del panel");
+            panel.left.panel.translateX = -this.pageWidth * 2 + panelLeftGap
         }
         if (panel.right != null) {
-            panel.right.panel.translateX = 0;
+            panel.right.panel.translateX =
+                this.shrinkSliderPercent !== 100
+                    ? -(
+                          (this.pageWidth / 100) *
+                          (100 -
+                              this.shrinkSliderPercent -
+                              this._gapBetweenSliders)
+                      )
+                    : 0;
         }
+
     }
 
     public goToSlide(index: number): void {
@@ -358,6 +436,7 @@ export class SlideContainer extends AbsoluteLayout {
         let previousDelta = -1; //hack to get around ios firing pan event after release
         let endingVelocity = 0;
         let startTime, deltaTime;
+        const panTrigger = this.twoSliders ? 5 : 3;
 
         this.currentPanel.panel.on(
             "pan",
@@ -367,17 +446,22 @@ export class SlideContainer extends AbsoluteLayout {
                     previousDelta = 0;
                     endingVelocity = 250;
 
-                    this.triggerStartEvent();
+                    this.triggerStartEvent(); // notify to custom events
                 } else if (args.state === gestures.GestureStateTypes.ended) {
+                    console.log("Termino el gesto");
+                    // when pan endend save time of delta.
                     deltaTime = Date.now() - startTime;
                     // if velocityScrolling is enabled then calculate the velocitty
 
                     // swiping left to right.
-                    if (args.deltaX > pageWidth / 3) {
+                    // if deltaX is a 3th part of pan.
+                    if (args.deltaX > pageWidth / panTrigger) {
                         if (this.hasPrevious) {
+                            // left to right +x
                             this.transitioning = true;
                             this.showLeftSlide(
-                                this.currentPanel,
+                                // apply animation
+                                this._slideMap,
                                 args.deltaX,
                                 endingVelocity
                             ).then(() => {
@@ -393,101 +477,120 @@ export class SlideContainer extends AbsoluteLayout {
                             );
                         }
                         return;
-                    }
-                    // swiping right to left
-                    else if (args.deltaX < -pageWidth / 3) {
-                        if (this.hasNext) {
-                            this.transitioning = true;
-                            this.showRightSlide(
-                                this.currentPanel,
-                                args.deltaX,
-                                endingVelocity
-                            ).then(() => {
-                                this.setupPanel(this.currentPanel.right);
-
-                                // Notify changed
-                                this.triggerChangeEventRightToLeft();
-
-                                if (!this.hasNext) {
-                                    // Notify finsihed
-                                    this.notify({
-                                        eventName: SlideContainer.finishedEvent,
-                                        object: this,
-                                    });
-                                }
-                            });
-                        } else {
-                            // We're at the end
-                            // Notify no more slides
-                            this.triggerCancelEvent(
-                                cancellationReason.noMoreSlides
-                            );
-                        }
+                        // swiping right to left -x
+                    } else if (args.deltaX < -pageWidth / panTrigger) {
+                        this.doSwipeRightToLeft(
+                            args,
+                            pageWidth,
+                            panTrigger,
+                            endingVelocity,
+                            this.currentPanel.right
+                        );
                         return;
                     }
-
-                    if (this.transitioning === false) {
+                    // user has cancelled transition
+                    if (
+                        !(args.deltaX < -pageWidth - 1 / panTrigger) ||
+                        !(args.deltaX > pageWidth - 1 / panTrigger)
+                    ) {
+                        console.log("entro userCancelled");
                         //Notify cancelled
                         this.triggerCancelEvent(cancellationReason.user);
                         this.transitioning = true;
+
+                        let panelLeftGap = 0;
+                        let addPercentage = 0;
+                        if (this.shrinkSliderPercent !== 100) {
+                            this.currentPanel.panel.width = (this.pageWidth / 100) * this.shrinkSliderPercent;
+                            if (
+                                this._slideMap[this._slideMap.length - 1].index === this.currentPanel.index
+                            ) {
+
+                                // align right when is last slide
+                                addPercentage =
+                                    (this.pageWidth / 100) *
+                                    (100 - this.shrinkSliderPercent + this.gapBetweenSliders);
+
+                                if (this.currentPanel.left !== null) {
+                                    panelLeftGap =
+                                        (this.pageWidth / 100) *
+                                        ((100 - this.shrinkSliderPercent) * 2);
+                                } else {
+                                    panelLeftGap = 0;
+                                }
+                            }
+                        }
                         this.currentPanel.panel.animate({
-                            translate: { x: -this.pageWidth, y: 0 },
+                            translate: { x: -this.pageWidth + addPercentage, y: 0 },
                             duration: 200,
                             curve: AnimationCurve.easeOut,
                         });
-                        if (this.hasNext) {
+                         if (this.hasNext) {
+
+                            console.log("entro hasNext userCancelled");
+                            let translateX = 0;
+                            if (this.shrinkSliderPercent !== 100) {
+                                translateX =
+                                    (-this.pageWidth / 100) *
+                                    (100 -
+                                        this.shrinkSliderPercent -
+                                        this.gapBetweenSliders);
+                            } else {
+                                translateX = 0;
+                            }
                             this.currentPanel.right.panel.animate({
-                                translate: { x: 0, y: 0 },
+                                translate: { x: translateX +panelLeftGap, y: 0 },
                                 duration: 200,
                                 curve: AnimationCurve.easeOut,
                             });
-                            if (app.ios)
-                                //for some reason i have to set these in ios or there is some sort of bounce back.
-                                this.currentPanel.right.panel.translateX = 0;
+                         if (app.ios) {
+                                 this.currentPanel.right.panel.translateX = 0;
+                            }
+                            //for some reason i have to set these in ios or there is some sort of bounce back.
                         }
                         if (this.hasPrevious) {
+                            console.log("entro hasPrevious userCancelled");
+
                             this.currentPanel.left.panel.animate({
-                                translate: { x: -this.pageWidth * 2, y: 0 },
+                                translate: { x:  -this.pageWidth * 2 + panelLeftGap, y: 0 },
                                 duration: 200,
                                 curve: AnimationCurve.easeOut,
                             });
-                            if (app.ios)
-                                this.currentPanel.left.panel.translateX =
-                                    -this.pageWidth;
-                        }
-                        if (app.ios)
-                            this.currentPanel.panel.translateX =
-                                -this.pageWidth;
 
-                        this.transitioning = false;
+
+                            // if (app.ios) {
+                            //     this.currentPanel.left.panel.translateX =
+                            //         -this.pageWidth * 2 +panelLeftGap;
+                            // }
+                        }
+                        // if (app.ios) {
+                        //     this.currentPanel.panel.translateX =
+                        //         -this.pageWidth;
+                        //     this.transitioning = false;
+                        // }
+                       // if (this.shrinkSliderPercent !== 100) {
+                            console.log('∂panel id', this.currentPanel.index)
+                            this.setupPanel(this.currentPanel);
+                       // }
                     }
                 } else {
+                    // delta to left -x
                     if (
-                        !this.transitioning &&
+                        // !this.transitioning &&
                         previousDelta !== args.deltaX &&
                         args.deltaX != null &&
                         args.deltaX < 0
                     ) {
-                        if (this.hasNext) {
-                            this.direction = direction.left;
-                            this.currentPanel.panel.translateX =
-                                args.deltaX - this.pageWidth;
-                            this.currentPanel.right.panel.translateX =
-                                args.deltaX;
-                        }
+                        this.deltaXNegative(args);
+                        return;
                     } else if (
-                        !this.transitioning &&
+                        //   !this.transitioning &&
                         previousDelta !== args.deltaX &&
                         args.deltaX != null &&
                         args.deltaX > 0
                     ) {
-                        if (this.hasPrevious) {
-                            this.direction = direction.right;
-                            this.currentPanel.panel.translateX =
-                                args.deltaX - this.pageWidth;
-                            this.currentPanel.left.panel.translateX =
-                                -(this.pageWidth * 2) + args.deltaX;
-                        }
+                        this.deltaXPositiveX(args);
+                        return;
                     }
 
                     if (args.deltaX !== 0) {
@@ -496,10 +599,203 @@ export class SlideContainer extends AbsoluteLayout {
                 }
             }
         );
+        if (this.currentPanel.right && this.shrinkSliderPercent !== 100) {
+            this.currentPanel.right.panel.on(
+                "pan",
+                (args: gestures.PanGestureEventData): void => {
+                    console.log("pan left", args.deltaX);
+                    if (args.state === gestures.GestureStateTypes.began) {
+                    } else if (
+                        args.state === gestures.GestureStateTypes.ended
+                    ) {
+                        // right to left
+
+                        if (args.deltaX < -pageWidth / panTrigger) {
+                            this.doSwipeRightToLeft(
+                                args,
+                                pageWidth,
+                                panTrigger,
+                                endingVelocity,
+                                this.currentPanel.right
+                            );
+                            return;
+                        } else if (
+                            !(args.deltaX < -pageWidth - 1 / panTrigger) ||
+                            !(args.deltaX > pageWidth - 1 / panTrigger)
+                        ) {
+                            console.log("entro userCancelled");
+                            //Notify cancelled
+                            this.triggerCancelEvent(cancellationReason.user);
+                            this.transitioning = true;
+                            this.currentPanel.panel.animate({
+                                translate: { x: -this.pageWidth, y: 0 },
+                                duration: 200,
+                                curve: AnimationCurve.easeOut,
+                            });
+                            if (this.hasNext) {
+                                console.log("entro hasNext userCancelled");
+                                let translateX;
+                                if (this.shrinkSliderPercent !== 100) {
+                                    translateX =
+                                        (-this.pageWidth / 100) *
+                                        (100 -
+                                            this.shrinkSliderPercent -
+                                            this.gapBetweenSliders);
+                                } else {
+                                    translateX = 0;
+                                }
+                                this.currentPanel.right.panel.animate({
+                                    translate: { x: translateX, y: 0 },
+                                    duration: 200,
+                                    curve: AnimationCurve.easeOut,
+                                });
+                                if (app.ios) {
+                                    this.currentPanel.right.panel.translateX = 0;
+                                }
+
+                                //for some reason i have to set these in ios or there is some sort of bounce back.
+                            }
+                        }
+                    } else {
+                        if (
+                            // !this.transitioning &&
+                            previousDelta !== args.deltaX &&
+                            args.deltaX != null &&
+                            args.deltaX < 0
+                        ) {
+                            return;
+                            this.deltaXNegative(args);
+                        }
+                    }
+                }
+            );
+        }
     }
 
+    private doSwipeRightToLeft(
+        args: gestures.PanGestureEventData,
+        pageWidth,
+        panTrigger,
+        endingVelocity,
+        currentPanel: ISlideMap
+    ) {
+        if (this.hasNext) {
+            // transition to +x right to left finished
+            this.transitioning = true;
+            this.showRightSlide(
+                this._slideMap,
+                args.deltaX,
+                endingVelocity
+            ).then(() => {
+                console.log('setupPanel')
+                this.setupPanel(currentPanel);
+
+                // Notify changed
+                this.triggerChangeEventRightToLeft();
+
+                if (!this.hasNext) {
+                    // Notify finsihed
+                    this.notify({
+                        eventName: SlideContainer.finishedEvent,
+                        object: this,
+                    });
+                }
+            });
+        } else {
+            // We're at the end
+            // Notify no more slides
+            this.triggerCancelEvent(cancellationReason.noMoreSlides);
+        }
+    }
+
+    private deltaXNegative(args: gestures.PanGestureEventData) {
+        console.log("X negative left ");
+        if (this.hasNext) {
+            this.direction = direction.left;
+            if (
+                this._slideMap[this._slideMap.length - 1].index ===
+                this.currentPanel.index
+            ) {
+            } else {
+                this.currentPanel.panel.translateX =
+                    args.deltaX - this.pageWidth;
+            }
+            let translateRightInX;
+            if (this.shrinkSliderPercent !== 100) {
+                this._twoOrMoreSlides = true;
+                translateRightInX =
+                    (-this.pageWidth / 100) *
+                    (100 - this.shrinkSliderPercent - this.gapBetweenSliders);
+                this.currentPanel.right.panel.width =
+                    (this.pageWidth / 100) * this.shrinkSliderPercent -
+                    this._gapBetweenSliders;
+
+                if (this.currentPanel.left) {
+                    this.currentPanel.left.panel.translateX =
+                        -this.pageWidth * 2;
+                }
+                console.log(
+                    "panel right width ",
+                    this.currentPanel.right.panel.width
+                );
+            } else {
+                translateRightInX = 0;
+            }
+            this.currentPanel.right.panel.translateX =
+                args.deltaX + translateRightInX;
+        }
+        return;
+        // delta to right +x
+    }
+
+    private deltaXPositiveX(args: gestures.PanGestureEventData) {
+        if (this.hasPrevious) {
+            console.log("x Positive right");
+            console.log(args.deltaX, "delta in unknow second");
+
+            let addGapRightToLeft;
+            let addGapLeftSlide;
+            if (this.shrinkSliderPercent !== 100) {
+                addGapRightToLeft =
+                    (this.shrinkSliderPercent / 100) * this.shrinkSliderPercent;
+                addGapLeftSlide = -this.pageWidth * 2 + this.pageWidth / 100 * (100- this.shrinkSliderPercent - this.gapBetweenSliders * 2) * 2;
+                 if (this.currentPanel.right) {
+                    this.currentPanel.right.panel.translateX = args.deltaX;
+                 }
+            } else {
+                addGapLeftSlide = 0;
+                addGapRightToLeft = 0;
+            }
+
+            this.direction = direction.right;
+            this.currentPanel.panel.translateX =
+                args.deltaX - this.pageWidth + addGapRightToLeft;
+
+            if (this.shrinkSliderPercent !== 100) {
+                this.currentPanel.left.panel.translateX =
+                    args.deltaX + addGapLeftSlide;
+                console.log(
+                    "deltaX",
+                    args.deltaX,
+                    "addGapLeftSide",
+                    addGapLeftSlide
+                );
+
+            } else {
+                this.currentPanel.left.panel.translateX =
+                    -this.pageWidth * 2 + args.deltaX;
+            }
+
+             if (app.ios) {
+                this.currentPanel.right.panel.translateX = 0;
+           }
+
+        }
+
+    }
+    // do animation -x
     private showRightSlide(
-        panelMap: ISlideMap,
+        panelMap: ISlideMap[],
         offset: number = this.pageWidth,
         endingVelocity: number = 32
     ): AnimationModule.AnimationPromise {
@@ -507,45 +803,144 @@ export class SlideContainer extends AbsoluteLayout {
         animationDuration = 300; // default value
 
         let transition = new Array();
+        let addPercentage = 0;
+        let gapPrevSlide = 0;
+        if (this.shrinkSliderPercent !== 100) {
+                    // show a bit of last panel at end
+            if (
+                panelMap[this._slideMap.length - 2].index ===
+                panelMap[this.currentIndex].index
+            ) {
+                addPercentage =
+                    (this.pageWidth / 100) *
+                    (100 - this.shrinkSliderPercent + this.gapBetweenSliders);
+                gapPrevSlide =
+                    (this.pageWidth / 100) *
+                    ((100 - this.shrinkSliderPercent) * 2);
+            } else {
+                addPercentage = 0;
+                gapPrevSlide = 0;
+            }
+        }
+        //console.log(-this.pageWidth * 2, 'aqui');
+        //hide current panel or show a bit
+        transition.push({
+            target: panelMap[this.currentIndex].panel,
+            translate: { x: -this.pageWidth * 2 + gapPrevSlide, y: 0 },
+            duration: animationDuration,
+            curve: AnimationCurve.easeOut,
+        });
+        console.log(
+            "current panel en este momento",
+            panelMap[this.currentIndex].panel.width
+        );
+        // show next panel
 
+        console.log('addPercentage showRightSlide',addPercentage);
+
+
+
+        if (this.shrinkSliderPercent !== 100) {
+            // show a bit of next panel
+            panelMap[this.currentIndex].right.panel.width =
+                (this.pageWidth / 100) * this.shrinkSliderPercent;
+            if (panelMap[this.currentIndex + 1].right) {
+                transition.push({
+                    target: panelMap[this.currentIndex + 1].right.panel,
+                    translate: {
+                        x:
+                            -(this.pageWidth / 100) *
+                            (100 -
+                                this.shrinkSliderPercent -
+                                this._gapBetweenSliders),
+                        y: 0,
+                    },
+                    duration: animationDuration,
+                    curve: AnimationCurve.easeOut,
+                });
+            }
+        }
         transition.push({
-            target: panelMap.right.panel,
-            translate: { x: -this.pageWidth, y: 0 },
+            target: panelMap[this.currentIndex].right.panel,
+            translate: { x: -this.pageWidth + addPercentage, y: 0 },
             duration: animationDuration,
             curve: AnimationCurve.easeOut,
         });
-        transition.push({
-            target: panelMap.panel,
-            translate: { x: -this.pageWidth * 2, y: 0 },
-            duration: animationDuration,
-            curve: AnimationCurve.easeOut,
-        });
+
+
+
+
+
         let animationSet = new AnimationModule.Animation(transition, false);
 
         return animationSet.play();
     }
-
+    // do animation right +x
     private showLeftSlide(
-        panelMap: ISlideMap,
+        panelMap: ISlideMap[],
         offset: number = this.pageWidth,
         endingVelocity: number = 32
     ): AnimationModule.AnimationPromise {
         let animationDuration: number;
         animationDuration = 300; // default value
         let transition = new Array();
+        // show next panel
+        //-(this.pageWidth / 100 * (100 - this.shrinkSliderPercent - 10))
+        if (this.shrinkSliderPercent !== 100) {
+            panelMap[this.currentIndex].left.panel.width =
+                (this.pageWidth / 100) * this.shrinkSliderPercent;
+            if (panelMap[this.currentIndex].panel) {
+                transition.push({
+                    target: panelMap[this.currentIndex].panel,
+                    translate: {
+                        x:
+                            -(this.pageWidth / 100) *
+                            (100 -
+                                this.shrinkSliderPercent -
+                                this._gapBetweenSliders),
+                        y: 0,
+                    },
+                    duration: animationDuration,
+                    curve: AnimationCurve.easeOut,
+                });
+            }
 
+
+            if(this._slideMap[this.currentIndex].right){
+                transition.push({
+                    target: panelMap[this.currentIndex].right.panel,
+                    translate: { x: 0, y: 0 },
+                    duration: animationDuration,
+                    curve: AnimationCurve.easeOut,
+                });
+
+                if(app.ios) {
+                    panelMap[this.currentIndex].right.panel.translateX = 0;
+                }
+
+        }
+
+
+
+
+            // hi
+        }
         transition.push({
-            target: panelMap.left.panel,
+            target: panelMap[this.currentIndex].left.panel,
             translate: { x: -this.pageWidth, y: 0 },
             duration: animationDuration,
             curve: AnimationCurve.easeOut,
         });
-        transition.push({
-            target: panelMap.panel,
-            translate: { x: 0, y: 0 },
-            duration: animationDuration,
-            curve: AnimationCurve.easeOut,
-        });
+        // hide current panel animation
+        if (!this._twoOrMoreSlides) {
+            transition.push({
+                target: panelMap[this.currentIndex].panel,
+                translate: { x: 0, y: 0 },
+                duration: animationDuration,
+                curve: AnimationCurve.easeOut,
+            });
+        }
+
         let animationSet = new AnimationModule.Animation(transition, false);
 
         return animationSet.play();
@@ -568,7 +963,6 @@ export class SlideContainer extends AbsoluteLayout {
         footerInnerWrap.orientation = "horizontal";
         footerInnerWrap.horizontalAlignment = "center";
         footerInnerWrap.width = this.pageWidth / 2;
-        console.log(footerInnerWrap.width, "footerInnerWrap.width");
 
         let index = 0;
         while (index < pageCount) {
@@ -577,7 +971,6 @@ export class SlideContainer extends AbsoluteLayout {
         }
 
         let pageIndicatorsLeftOffset = this.pageWidth / 4;
-        console.log(pageIndicatorsLeftOffset, "Indicator");
 
         AbsoluteLayout.setLeft(footerInnerWrap, pageIndicatorsLeftOffset);
         footerInnerWrap.marginTop = <any>this._pagerOffset;
@@ -600,7 +993,7 @@ export class SlideContainer extends AbsoluteLayout {
     private buildSlideMap(views: StackLayout[]) {
         this._slideMap = [];
         views.forEach((view: StackLayout, index: number) => {
-           // console.log(views);
+            // console.log(views);
             this._slideMap.push({
                 panel: view,
                 index: index,
@@ -608,7 +1001,6 @@ export class SlideContainer extends AbsoluteLayout {
         });
         this._slideMap.forEach((mapping: ISlideMap, index: number) => {
             if (this._slideMap[index - 1] != null) {
-
                 mapping.left = this._slideMap[index - 1];
             }
             if (this._slideMap[index + 1] != null) {

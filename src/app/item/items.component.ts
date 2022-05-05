@@ -40,12 +40,15 @@ export class ItemsComponent implements OnInit {
         slideContainer.col = 0;
         slideContainer.pagerOffset = '35%';
         slideContainer.pageIndicators = true;
+        slideContainer.shrinkSliderPercent = 70;
+        slideContainer.gapBetweenSliders = 7;
         slideContainer.addChild(
             this.buildSliders(
                 "res://icon",
                 "Google",
-                "El mayor buscador del mundo",
-                "slide-1"
+                "aEl mayor buscador del mundo",
+                "slide-1",
+                "orange"
             )
         );
 
@@ -53,8 +56,10 @@ export class ItemsComponent implements OnInit {
             this.buildSliders(
                 "res://icon",
                 "Google",
-                "El mayor buscador del mundo 1",
-                "slide-2"
+                "eEl mayor buscador del mundo 1",
+                "slide-2",
+                "blue"
+
             )
         );
 
@@ -62,35 +67,59 @@ export class ItemsComponent implements OnInit {
             this.buildSliders(
                 "res://icon",
                 "Google",
-                "El mayor buscador del mundo 2",
-                "slide-3"
+                "iEl mayor buscador del mundo 2",
+                "slide-2",
+                "purple"
+            )
+        );
+        slideContainer.addChild(
+            this.buildSliders(
+                "res://icon",
+                "Google",
+                "iEl mayor buscador del mundo 2",
+                "slide-2",
+                "brown"
+            )
+        );
+        slideContainer.addChild(
+            this.buildSliders(
+                "res://icon",
+                "Google",
+                "iEl mayor buscador del mundo 2",
+                "slide-2",
+                "gray"
+            )
+        );
+        slideContainer.addChild(
+            this.buildSliders(
+                "res://icon",
+                "Google",
+                "iEl mayor buscador del mundo 2",
+                "slide-2",
+                "white"
+            )
+        );
+        slideContainer.addChild(
+            this.buildSliders(
+                "res://icon",
+                "Google",
+                "iEl mayor buscador del mundo 2",
+                "slide-2",
+                "red"
             )
         );
 
-        slideContainer.addChild(
+    slideContainer.addChild(
             this.buildSliders(
                 "res://icon",
                 "Google",
-                "El mayor buscador del mundo 3",
-                "slide-4"
+                "iEl mayor buscador del mundo 2",
+                "slide-2",
+                "green"
             )
         );
-        slideContainer.addChild(
-            this.buildSliders(
-                "res://icon",
-                "Google",
-                "El mayor buscador del mundo 3",
-                "slide-4"
-            )
-        );
-        slideContainer.addChild(
-            this.buildSliders(
-                "res://icon",
-                "Google",
-                "El mayor buscador del mundo 3",
-                "slide-4"
-            )
-        );
+
+
 
         layoutPlaceHolder.addChild(slideContainer);
     }
@@ -99,10 +128,11 @@ export class ItemsComponent implements OnInit {
         imgURL: string,
         title: string,
         description: string,
-        className: string
+        className: string,
+        backgroundColor: string
     ): Slide {
         const card = new StackLayout();
-        // card.width = 'auto';
+        card.width = 'auto';
         let slide = new Slide();
         slide.backgroundColor = 'gray'
         slide.className = className;
@@ -115,8 +145,9 @@ export class ItemsComponent implements OnInit {
         image.src = imgURL;
         image.width = 100;
         console.log(imgURL);
-        card.backgroundColor = 'orange';
+       // card.backgroundColor = 'orange';
         card.paddingTop = 10
+        card.backgroundColor = backgroundColor;
         card.borderWidth = 1;
         card.borderColor = 'purple'
         card.addChild(label);
