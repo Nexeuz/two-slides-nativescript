@@ -383,15 +383,20 @@ export class SlideContainer extends AbsoluteLayout {
             }
 
             if (app.ios) {
-                if(this._slideMap[this.currentIndex + 1]) {
+                if (this._slideMap[this.currentIndex + 1]) {
                     if (this._slideMap[this.currentIndex + 1].right) {
                         this._slideMap[
                             this.currentIndex + 1
                         ].right.panel.translateX = 0;
                     }
                 }
-
             }
+        }
+        /**
+         * prevent bug first slide show at the end
+         */
+        if (panel.index === this._slideMap[this._slideMap.length - 1].index) {
+            this._slideMap[0].panel.translateX = -this.pageWidth * 2;
         }
         console.log("addPercentage ", addPercentage, panel.index);
         panel.panel.translateX = -this.pageWidth + addPercentage;
@@ -468,16 +473,18 @@ export class SlideContainer extends AbsoluteLayout {
                                 this._slideMap,
                                 args.deltaX,
                                 endingVelocity
-                            ).then(() => {
-                                setTimeout(() => {
-                                    this.setupPanel(this.currentPanel.left);
+                            ).then(
+                                () => {
+                                    setTimeout(() => {
+                                        this.setupPanel(this.currentPanel.left);
 
-                                    this.triggerChangeEventLeftToRight();
-                                },10)
-
-                            }, err => {
-                                    console.error('Error de promesa')
-                            });
+                                        this.triggerChangeEventLeftToRight();
+                                    }, 10);
+                                },
+                                (err) => {
+                                    console.error("Error de promesa");
+                                }
+                            );
                         } else {
                             //We're at the start
                             //Notify no more slides
@@ -499,14 +506,30 @@ export class SlideContainer extends AbsoluteLayout {
                     }
                     // user has cancelled transition
                     if (
-
-                        !(args.deltaX < -pageWidth - 1 / panTrigger && args.deltaX < -3) ||
-                        !(args.deltaX > pageWidth - 1 / panTrigger  && args.deltaX > 3)
+                        !(
+                            args.deltaX < -pageWidth - 1 / panTrigger &&
+                            args.deltaX < -3
+                        ) ||
+                        !(
+                            args.deltaX > pageWidth - 1 / panTrigger &&
+                            args.deltaX > 3
+                        )
                     ) {
                         console.log("entro userCancelled");
                         //Notify cancelled
                         this.triggerCancelEvent(cancellationReason.user);
                         this.transitioning = true;
+
+                        /**
+                         * prevent bug first slide show at the end
+                         */
+                        if (
+                            this._slideMap[this.currentIndex].index ===
+                            this._slideMap[this._slideMap.length - 1].index
+                        ) {
+                            this._slideMap[0].panel.translateX =
+                                -this.pageWidth * 2;
+                        }
 
                         let panelLeftGap = 0;
                         let addPercentage = 0;
@@ -628,16 +651,30 @@ export class SlideContainer extends AbsoluteLayout {
             previousDelta
         );
 
-        if (
-            this._slideMap[this.currentIndex].index ===
-            this._slideMap[this._slideMap.length - 1].index
-        ) {
-            console.log('entro aqui,applySwipeLeftPanel', )
-            this.applySwipeLeftEndPanel(this._slideMap[this.currentIndex-1], previousDelta, pageWidth, panTrigger, endingVelocity );
+        if (this.shrinkSliderPercent !== 100) {
+            if (
+                this._slideMap[this.currentIndex].index ===
+                this._slideMap[this._slideMap.length - 1].index
+            ) {
+                console.log("entro aqui,applySwipeLeftPanel");
+                this.applySwipeLeftEndPanel(
+                    this._slideMap[this.currentIndex - 1],
+                    previousDelta,
+                    pageWidth,
+                    panTrigger,
+                    endingVelocity
+                );
+            }
         }
     }
 
-    private applySwipeLeftEndPanel(currentPanel: ISlideMap, previousDelta:number, pageWidth: number, panTrigger, endingVelocity) {
+    private applySwipeLeftEndPanel(
+        currentPanel: ISlideMap,
+        previousDelta: number,
+        pageWidth: number,
+        panTrigger,
+        endingVelocity
+    ) {
         currentPanel.panel.on(
             "pan",
             (args: gestures.PanGestureEventData): void => {
@@ -652,17 +689,15 @@ export class SlideContainer extends AbsoluteLayout {
                         );
                         return;
                     }
-
                 } else if (
                     previousDelta !== args.deltaX &&
                     args.deltaX != null &&
                     args.deltaX > 0
                 ) {
-                    console.log('applySwipeLeftPanel', args.deltaX);
+                    console.log("applySwipeLeftPanel", args.deltaX);
                     if (this.hasPrevious) {
-
                     }
-                        return;
+                    return;
                 }
             }
         );
@@ -762,7 +797,7 @@ export class SlideContainer extends AbsoluteLayout {
                 args.deltaX,
                 endingVelocity
             ).then(() => {
-                setTimeout(()=> {
+                setTimeout(() => {
                     this.setupPanel(currentPanel);
 
                     // Notify changed
@@ -775,8 +810,7 @@ export class SlideContainer extends AbsoluteLayout {
                             object: this,
                         });
                     }
-                },10)
-
+                }, 10);
             });
         } else {
             // We're at the end
@@ -829,7 +863,7 @@ export class SlideContainer extends AbsoluteLayout {
         if (this.hasPrevious) {
             console.log("x Positive right ", args.deltaX);
 
-           // let addGapRightToLeft;
+            // let addGapRightToLeft;
             let addGapLeftSlide;
             if (this.shrinkSliderPercent !== 100) {
                 /**
@@ -838,18 +872,26 @@ export class SlideContainer extends AbsoluteLayout {
                  */
 
                 addGapLeftSlide =
-                    -this.pageWidth * 2  + this.pageWidth / 100 * (100- this.shrinkSliderPercent - this.gapBetweenSliders);
+                    -this.pageWidth * 2 +
+                    (this.pageWidth / 100) *
+                        (100 -
+                            this.shrinkSliderPercent -
+                            this.gapBetweenSliders);
                 if (this.currentPanel.right) {
-                    this.currentPanel.right.panel.translateX = args.deltaX - this.pageWidth / 100 * (100- this.shrinkSliderPercent - this.gapBetweenSliders);
+                    this.currentPanel.right.panel.translateX =
+                        args.deltaX -
+                        (this.pageWidth / 100) *
+                            (100 -
+                                this.shrinkSliderPercent -
+                                this.gapBetweenSliders);
                 }
             } else {
                 addGapLeftSlide = 0;
-               // addGapRightToLeft = 0;
+                // addGapRightToLeft = 0;
             }
 
             this.direction = direction.right;
-            this.currentPanel.panel.translateX =
-                args.deltaX - this.pageWidth;
+            this.currentPanel.panel.translateX = args.deltaX - this.pageWidth;
 
             if (this.shrinkSliderPercent !== 100) {
                 this.currentPanel.left.panel.translateX =
@@ -866,7 +908,7 @@ export class SlideContainer extends AbsoluteLayout {
             }
 
             if (app.ios && this.shrinkSliderPercent === 100) {
-                if(this.currentPanel.right) {
+                if (this.currentPanel.right) {
                     this.currentPanel.right.panel.translateX = 0;
                 }
             }
@@ -886,21 +928,26 @@ export class SlideContainer extends AbsoluteLayout {
         let gapPrevSlide = 0;
         if (this.shrinkSliderPercent !== 100) {
             // show a bit of last panel at end of slides
-            if (
-                panelMap[this._slideMap.length - 2].index ===
-                panelMap[this.currentIndex].index
-            ) {
-                addPercentage =
-                    (this.pageWidth / 100) *
-                    (100 - this.shrinkSliderPercent + this.gapBetweenSliders);
-                gapPrevSlide =
-                    (this.pageWidth / 100) *
-                    ((100 - this.shrinkSliderPercent) * 2);
-            } else {
-                addPercentage = 0;
-                gapPrevSlide = 0;
+            if (panelMap[this._slideMap.length - 2]) {
+                if (
+                    panelMap[this._slideMap.length - 2].index ===
+                    panelMap[this.currentIndex].index
+                ) {
+                    addPercentage =
+                        (this.pageWidth / 100) *
+                        (100 -
+                            this.shrinkSliderPercent +
+                            this.gapBetweenSliders);
+                    gapPrevSlide =
+                        (this.pageWidth / 100) *
+                        ((100 - this.shrinkSliderPercent) * 2);
+                } else {
+                    addPercentage = 0;
+                    gapPrevSlide = 0;
+                }
             }
         }
+
         //console.log(-this.pageWidth * 2, 'aqui');
         //hide current panel or show a bit
         transition.push({
@@ -913,7 +960,7 @@ export class SlideContainer extends AbsoluteLayout {
             "current panel en este momento",
             panelMap[this.currentIndex].panel.width
         );
-        // show next panel
+        // show next (right) panel
         transition.push({
             target: panelMap[this.currentIndex].right.panel,
             translate: { x: -this.pageWidth + addPercentage, y: 0 },
@@ -941,11 +988,9 @@ export class SlideContainer extends AbsoluteLayout {
                     duration: animationDuration,
                     delay: 35,
                     curve: AnimationCurve.easeOut,
-
                 });
             }
         }
-
 
         let animationSet = new AnimationModule.Animation(transition, false);
 
@@ -980,7 +1025,7 @@ export class SlideContainer extends AbsoluteLayout {
                     curve: AnimationCurve.easeOut,
                 });
             }
-
+            // hide right panel to 0
             if (this._slideMap[this.currentIndex].right) {
                 transition.push({
                     target: panelMap[this.currentIndex].right.panel,
@@ -996,6 +1041,7 @@ export class SlideContainer extends AbsoluteLayout {
 
             // hi
         }
+        // show left panel animation
         transition.push({
             target: panelMap[this.currentIndex].left.panel,
             translate: { x: -this.pageWidth, y: 0 },
