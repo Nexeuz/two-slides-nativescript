@@ -1,7 +1,6 @@
 require("nativescript-dom");
 import * as app from "@nativescript/core/application";
 import * as Platform from "@nativescript/core/platform";
-import * as utils from "@nativescript/core/utils/utils";
 import { AbsoluteLayout } from "@nativescript/core/ui/layouts/absolute-layout";
 import { StackLayout } from "@nativescript/core/ui/layouts/stack-layout";
 import { View } from "@nativescript/core/ui/core/view";
