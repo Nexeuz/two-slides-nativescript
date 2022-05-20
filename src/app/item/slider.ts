@@ -50,7 +50,7 @@ export interface ISlideMap {
 
 export class SlideContainer extends AbsoluteLayout {
     private currentPanel: ISlideMap;
-    private transitioning: boolean = false;
+    private transitioning: boolean;
     private direction: direction = direction.none;
     private _loaded: boolean;
     private _pageWidth: number;
@@ -177,12 +177,6 @@ export class SlideContainer extends AbsoluteLayout {
     }
     set slideWidth(width: string) {
         this._slideWidth = width;
-    }
-
-    private get twoSliders() {
-        return this.shrinkSliderPercent !== 100
-            ? true
-            : false && !!this.gapBetweenSliders;
     }
 
     constructor() {
@@ -317,7 +311,7 @@ export class SlideContainer extends AbsoluteLayout {
         }
 
         this.direction = direction.left;
-        this.transitioning = true;
+        // this.transitioning = true;
         this.triggerStartEvent();
         this.showRightSlide(this._slideMap).then(() => {
             this.setupPanel(this.currentPanel.right);
@@ -331,7 +325,7 @@ export class SlideContainer extends AbsoluteLayout {
         }
 
         this.direction = direction.right;
-        this.transitioning = true;
+        //  this.transitioning = true;
         this.triggerStartEvent();
         this.showLeftSlide(this._slideMap).then(() => {
             this.setupPanel(this.currentPanel.left);
@@ -341,7 +335,7 @@ export class SlideContainer extends AbsoluteLayout {
 
     private setupPanel(panel: ISlideMap) {
         this.direction = direction.none;
-        this.transitioning = false;
+        // this.transitioning = false;
         panel.panel.off("pan");
         if (this.shrinkSliderPercent !== 100) {
             if (panel.right) {
@@ -503,120 +497,11 @@ export class SlideContainer extends AbsoluteLayout {
         }
     }
 
-    private applySwipleCurrentPanel(
-        startTime: number,
-        previousDelta: number,
-        endingVelocity: number,
-        deltaTime: number,
-        pageWidth: number
-    ) {
-        this.currentPanel.panel.on(
-            "pan",
-            (args: gestures.PanGestureEventData): void => {
-                console.log("------------------------------");
-                console.log("entro aqui applySwipleCurrentPanel()");
-                console.log("applySwipleCurrentPanel delta", args.deltaX);
-                if (args.state === gestures.GestureStateTypes.began) {
-                    startTime = Date.now();
-                    previousDelta = 0;
-                    endingVelocity = 250;
-
-                    this.triggerStartEvent(); // notify to custom events
-                } else if (args.state === gestures.GestureStateTypes.ended) {
-                    console.log("Termino el gesto");
-                    // when pan endend save time of delta.
-                    deltaTime = Date.now() - startTime;
-                    // if velocityScrolling is enabled then calculate the velocitty
-
-                    // swiping left to right.
-                    // if deltaX is a 3th part of pan.
-                    if (args.deltaX > pageWidth / this._panTrigger) {
-                        if (this.hasPrevious) {
-                            // left to right +x
-                            this.transitioning = true;
-                            this.showLeftSlide(
-                                // apply animation
-                                this._slideMap,
-                                args.deltaX,
-                                endingVelocity
-                            ).then(
-                                () => {
-                                    setTimeout(() => {
-                                        this.setupPanel(this.currentPanel.left);
-
-                                        this.triggerChangeEventLeftToRight();
-                                    }, 10);
-                                },
-                                (err) => {
-                                    console.error("Error de promesa");
-                                }
-                            );
-                        } else {
-                            //We're at the start
-                            //Notify no more slides
-                            this.triggerCancelEvent(
-                                cancellationReason.noPrevSlides
-                            );
-                        }
-                        return;
-                        // swiping right to left -x
-                    } else if (args.deltaX < -pageWidth / this._panTrigger) {
-                        this.doSwipeRightToLeft(
-                            args,
-                            pageWidth,
-                            endingVelocity,
-                            this.currentPanel.right
-                        );
-                        return;
-                    }
-                    // user has cancelled transition
-                    console.log(
-                        "Test deltax < ",
-                        args.deltaX < -pageWidth - 1 / this._panTrigger
-                    );
-                    console.log("Test deltax < args ", args.deltaX);
-                    console.log(
-                        "Test deltax > ",
-                        args.deltaX > pageWidth - 1 / this._panTrigger
-                    );
-                    console.log("Test deltax > args ", args.deltaX);
-
-                    if (this._eventCancelledByUser) {
-                        this.applyUserCancelled();
-                    }
-                } else {
-                    // delta to left -x
-                    if (
-                        // !this.transitioning &&
-                        previousDelta !== args.deltaX &&
-                        args.deltaX != null &&
-                        args.deltaX < -3
-                    ) {
-                        this.deltaXNegative(args);
-                        return;
-                    } else if (
-                        //   !this.transitioning &&
-                        previousDelta !== args.deltaX &&
-                        args.deltaX != null &&
-                        args.deltaX > 3
-                    ) {
-                        this.deltaXPositiveX(args);
-                        return;
-                    }
-
-                    if (args.deltaX !== 0) {
-                        previousDelta = args.deltaX;
-                    }
-                }
-            }
-        );
-    }
-
     private applyUserCancelled() {
         console.log("entro userCancelled");
         //Notify cancelled
         this.triggerCancelEvent(cancellationReason.user);
-        this.transitioning = true;
+        //  this.transitioning = true;
 
         /**
          * prevent bug first slide show at the end
@@ -713,6 +598,126 @@ export class SlideContainer extends AbsoluteLayout {
         // }
     }
 
+    private applySwipleCurrentPanel(
+        startTime: number,
+        previousDelta: number,
+        endingVelocity: number,
+        deltaTime: number,
+        pageWidth: number
+    ) {
+        this.currentPanel.panel.on(
+            "pan",
+            (args: gestures.PanGestureEventData): void => {
+                console.log("------------------------------");
+                console.log("entro aqui applySwipleCurrentPanel()");
+                console.log("applySwipleCurrentPanel delta", args.deltaX);
+                if (args.state === gestures.GestureStateTypes.began) {
+                    startTime = Date.now();
+                    previousDelta = 0;
+                    endingVelocity = 250;
+
+                    this.triggerStartEvent(); // notify to custom events
+                } else if (args.state === gestures.GestureStateTypes.ended) {
+                    console.log("Termino el gesto");
+                    // when pan endend save time of delta.
+                    deltaTime = Date.now() - startTime;
+                    // if velocityScrolling is enabled then calculate the velocitty
+
+                    // swiping left to right.
+                    // if deltaX is a 3th part of pan.
+                    if (args.deltaX > pageWidth / this._panTrigger) {
+                        if (this.hasPrevious) {
+                            // left to right +x
+                            console.log("-------------------");
+                            console.log(
+                                "empezo la transicion",
+                                this.transitioning
+                            );
+                            if (!this.transitioning) {
+                                this.transitioning = true;
+                                this.showLeftSlide(
+                                    // apply animation
+                                    this._slideMap,
+                                    args.deltaX,
+                                    endingVelocity
+                                ).then(
+                                    () => {
+                                        console.log("-------------------");
+                                        console.log("termino la transicion");
+                                        this.transitioning = false;
+                                        this.setupPanel(this.currentPanel.left);
+
+                                        this.triggerChangeEventLeftToRight();
+                                    },
+                                    (err) => {
+                                        console.error("Error de promesa");
+                                    }
+                                );
+                            }
+                        } else {
+                            //We're at the start
+                            //Notify no more slides
+                            this.triggerCancelEvent(
+                                cancellationReason.noPrevSlides
+                            );
+                        }
+                        return;
+                        // swiping right to left -x
+                    } else if (args.deltaX < -pageWidth / this._panTrigger) {
+                        this.doSwipeRightToLeft(
+                            args,
+                            pageWidth,
+                            endingVelocity,
+                            this.currentPanel.right
+                        );
+                        return;
+                    }
+
+                    if (this._eventCancelledByUser && !this.transitioning) {
+                        // user has cancelled transition
+                        console.log(
+                            "Test deltax < ",
+                            args.deltaX < -pageWidth - 1 / this._panTrigger
+                        );
+                        console.log("Test deltax < args ", args.deltaX);
+                        console.log(
+                            "Test deltax > ",
+                            args.deltaX > pageWidth - 1 / this._panTrigger
+                        );
+                        console.log("Test deltax > args ", args.deltaX);
+                        this._eventCancelledByUser = false;
+                        this.applyUserCancelled();
+                    }
+                } else {
+                    // delta to left -x
+                    if (
+                        !this.transitioning &&
+                        previousDelta !== args.deltaX &&
+                        args.deltaX != null &&
+                        args.deltaX < -4
+                    ) {
+                        this.deltaXNegative(args);
+                        return;
+                    } else if (
+                         !this.transitioning &&
+                        previousDelta !== args.deltaX &&
+                        args.deltaX != null &&
+                        args.deltaX > 4
+                    ) {
+                        this.deltaXPositiveX(args);
+                        return;
+                    }
+
+                    if (args.deltaX !== 0) {
+                        previousDelta = args.deltaX;
+                    }
+                }
+            }
+        );
+    }
+
+
+
     private applySwipeRightPanelTwoSlides(
         pageWidth: number,
         endingVelocity: number,
@@ -735,6 +740,7 @@ export class SlideContainer extends AbsoluteLayout {
                         // right to left
 
                         if (args.deltaX < -pageWidth / this._panTrigger) {
+
                             this.doSwipeRightToLeft(
                                 args,
                                 pageWidth,
@@ -742,24 +748,24 @@ export class SlideContainer extends AbsoluteLayout {
                                 this._slideMap[this.currentIndex + 1]
                             );
                             return;
-                        } else if (this._eventCancelledByUser) {
+                        } else if (this._eventCancelledByUser && !this.transitioning) {
                             console.log(
                                 "--------------------------------------------------"
                             );
                             console.log(
                                 "entro userCancelled applySwipeRightPanelTwoSlides"
                             );
-                            this.applyUserCancelled();
                             this._eventCancelledByUser = false;
+                            this.applyUserCancelled();
 
                             return;
                         }
                     } else {
                         if (
-                            // !this.transitioning &&
+                            !this.transitioning &&
                             previousDelta !== args.deltaX &&
                             args.deltaX != null &&
-                            args.deltaX < -3
+                            args.deltaX < -4
                         ) {
                             this.deltaXNegative(args);
                             return;
@@ -795,11 +801,16 @@ export class SlideContainer extends AbsoluteLayout {
                         pageWidth / this._panTrigger
                     );
                     if (args.deltaX > pageWidth / this._panTrigger) {
-                        this.showLeftSlide(this._slideMap).then(() => {
-                            this.setupPanel(this.currentPanel.left);
-                        });
+                        if(!this.transitioning) {
+                            this.transitioning = true;
+                            this.showLeftSlide(this._slideMap).then(() => {
+                                this.transitioning = false;
+                                this.setupPanel(this.currentPanel.left);
+                            });
+                        }
+
                         return;
-                    } else if (this._eventCancelledByUser) {
+                    } else if (this._eventCancelledByUser && !this.transitioning) {
                         console.log(
                             "entro applySwipeLeftEndPanel cancelledByUser "
                         );
@@ -827,9 +838,10 @@ export class SlideContainer extends AbsoluteLayout {
                         }
                     }
                 } else if (
+                    !this.transitioning &&
                     previousDelta !== args.deltaX &&
                     args.deltaX != null &&
-                    args.deltaX > 3
+                    args.deltaX > 4
                 ) {
                     if (this.hasPrevious) {
                         currentPanel.panel.translateX =
@@ -856,11 +868,15 @@ export class SlideContainer extends AbsoluteLayout {
                         args.deltaX
                     );
                     if (args.deltaX > pageWidth / this._panTrigger) {
-                        this.showLeftSlide(this._slideMap).then(() => {
-                            this.setupPanel(currentPanel.left);
-                        });
+                        if(!this.transitioning) {
+                            this.transitioning = true;
+                            this.showLeftSlide(this._slideMap).then(() => {
+                                this.transitioning = false;
+                                this.setupPanel(currentPanel.left);
+                            });
+                        }
                         return;
-                    } else if (this._eventCancelledByUser) {
+                    } else if (this._eventCancelledByUser && !this.transitioning) {
                         console.log(
                             "entro applySwipeLeftEndPanel cancelledByUser left "
                         );
@@ -883,10 +899,12 @@ export class SlideContainer extends AbsoluteLayout {
                         });
                         if (app.ios) {
                             currentPanel.panel.translateX = rightPanelTranslate;
-                            currentPanel.left.panel.translateX = leftPanelTranslate;
+                            currentPanel.left.panel.translateX =
+                                leftPanelTranslate;
                         }
                     }
                 } else if (
+                    !this.transitioning &&
                     previousDelta !== args.deltaX &&
                     args.deltaX != null &&
                     args.deltaX > 3
@@ -914,28 +932,30 @@ export class SlideContainer extends AbsoluteLayout {
         currentPanel: ISlideMap
     ) {
         if (this.hasNext) {
-            // transition to -x right to left finished
-            this.transitioning = true;
-            this.showRightSlide(
-                this._slideMap,
-                args.deltaX,
-                endingVelocity
-            ).then(() => {
-                setTimeout(() => {
-                    this.setupPanel(currentPanel);
+            if (!this.transitioning) {
+                this.transitioning = true;
+                // transition to -x right to left finished
+                //  this.transitioning = true;
+                this.showRightSlide(
+                    this._slideMap,
+                    args.deltaX,
+                    endingVelocity
+                ).then(() => {
+                    this.transitioning = false;
+                        this.setupPanel(currentPanel);
 
-                    // Notify changed
-                    this.triggerChangeEventRightToLeft();
+                        // Notify changed
+                        this.triggerChangeEventRightToLeft();
 
-                    if (!this.hasNext) {
-                        // Notify finsihed
-                        this.notify({
-                            eventName: SlideContainer.finishedEvent,
-                            object: this,
-                        });
-                    }
-                }, 10);
-            });
+                        if (!this.hasNext) {
+                            // Notify finsihed
+                            this.notify({
+                                eventName: SlideContainer.finishedEvent,
+                                object: this,
+                            });
+                        }
+                });
+            }
         } else {
             // We're at the end
             // Notify no more slides
@@ -980,7 +1000,10 @@ export class SlideContainer extends AbsoluteLayout {
             this.currentPanel.right.panel.translateX =
                 args.deltaX + translateRightInX;
 
-            if (!(args.deltaX < -this.pageWidth - 1 / this._panTrigger)) {
+            if (
+                !(args.deltaX < -this.pageWidth - 1 / this._panTrigger) &&
+                args.deltaX < -4
+            ) {
                 this._eventCancelledByUser = true;
                 return;
             }
@@ -1042,7 +1065,10 @@ export class SlideContainer extends AbsoluteLayout {
                     this.currentPanel.right.panel.translateX = 0;
                 }
             }
-            if (!(args.deltaX > this.pageWidth - 1 / this._panTrigger)) {
+            if (
+                !(args.deltaX > this.pageWidth - 1 / this._panTrigger) &&
+                args.deltaX > 4
+            ) {
                 this._eventCancelledByUser = true;
                 return;
             }

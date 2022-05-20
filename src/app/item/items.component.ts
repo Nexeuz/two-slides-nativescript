@@ -40,8 +40,7 @@ export class ItemsComponent implements OnInit {
         slideContainer.col = 0;
         slideContainer.pagerOffset = '35%';
         slideContainer.pageIndicators = true;
-        slideContainer.shrinkSliderPercent = 70;
-        slideContainer.gapBetweenSliders = 7;
+
         slideContainer.addChild(
             this.buildSliders(
                 "res://icon",
@@ -56,7 +55,7 @@ export class ItemsComponent implements OnInit {
             this.buildSliders(
                 "res://icon",
                 "Google",
-                "eEl mayor buscador del mundo 1",
+                "eEl mayor buscador del mundo 12",
                 "slide-2",
                 "blue"
 
@@ -67,21 +66,23 @@ export class ItemsComponent implements OnInit {
             this.buildSliders(
                 "res://icon",
                 "Google",
-                "iEl mayor buscador del mundo 2",
+                "iEl mayor buscador del mundo 211",
                 "slide-2",
-                "purple"
+                "transparent"
             )
         );
+
         slideContainer.addChild(
             this.buildSliders(
                 "res://icon",
                 "Google",
-                "iEl mayor buscador del mundo 2",
+                "iEl mayor buscador del mundo 21133",
                 "slide-2",
-                "brown"
+                "gray"
             )
         );
-        slideContainer.addChild(
+
+  /*       slideContainer.addChild(
             this.buildSliders(
                 "res://icon",
                 "Google",
@@ -117,7 +118,7 @@ export class ItemsComponent implements OnInit {
                 "slide-2",
                 "green"
             )
-        );
+        ); */
 
 
 
