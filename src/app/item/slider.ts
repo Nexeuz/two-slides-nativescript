@@ -212,7 +212,7 @@ export class SlideContainer extends AbsoluteLayout {
         }
 
         if (this._animationVelocity === null) {
-            this.animationVelocity = 300;
+            this.animationVelocity = 400;
         }
 
         this.transitioning = false;
@@ -374,12 +374,15 @@ export class SlideContainer extends AbsoluteLayout {
         // console.log('current panel', this.currentPanel);
         // console.log('new panel', panel);
         this.direction = direction.none;
+        if(!panel) {
+            return;
+        }
         if (differentPanel) {
             if (this.shrinkSliderPercent !== 100) {
-                if (this.currentPanel.right != null) {
+                if (this.currentPanel.right != null && this.currentPanel.right.panel != null) {
                     this.currentPanel.right.panel.off("pan");
                 }
-                if (this.currentPanel.left != null) {
+                if (this.currentPanel.left != null && this.currentPanel.left.panel != null) {
                     this.currentPanel.left.panel.off("pan");
                 }
             }
@@ -391,6 +394,7 @@ export class SlideContainer extends AbsoluteLayout {
         this.currentPanel = panel;
 
         // sets up each panel so that they are positioned to transition either way.
+     console.log("SET UP PANELS CURRENT PANEL", panel)
         this.positionPanels(this.currentPanel);
 
         if (this.disablePan === false) {
@@ -405,6 +409,9 @@ export class SlideContainer extends AbsoluteLayout {
     }
 
     private positionPanels(panel: ISlideMap) {
+        if (!panel) {
+            return;
+        }
         // sets up each panel so that they are positioned to transition either way.
         console.log("positionPanels() transitioning ", this.transitioning);
         let panelLeftGap = 0;
@@ -413,7 +420,7 @@ export class SlideContainer extends AbsoluteLayout {
             panel.panel.width =
                 (this.pageWidth / 100) * this.shrinkSliderPercent;
             if (
-                this._slideMap[this._slideMap.length - 1].index === panel.index
+                this._slideMap[this._slideMap.length - 1].index == panel.index
             ) {
                 // align right when is last slide
                 addPercentage =
@@ -439,19 +446,24 @@ export class SlideContainer extends AbsoluteLayout {
             }
             // }
         }
+
+        // console.log("addPercentage ", addPercentage, panel.index);
         /**
          * prevent bug first slide show at the end
          */
-        if (panel.index === this._slideMap[this._slideMap.length - 1].index) {
-            this._slideMap[0].panel.translateX = -this.pageWidth * 2;
+        // if (panel.index === this._slideMap[this._slideMap.length - 1].index) {
+        //     this._slideMap[0].panel.translateX = -this.pageWidth * 2;
+        // }
+        //console.log("addPercentage ", addPercentage, panel.index);
+        if (panel.panel) {
+            panel.panel.translateX = -this.pageWidth + addPercentage;
         }
-        console.log("addPercentage ", addPercentage, panel.index);
-        panel.panel.translateX = -this.pageWidth + addPercentage;
-        if (panel.left != null) {
+
+        if (panel.left != null && panel.left.panel) {
             console.log(panel.left.panel.width, "width del panel");
             panel.left.panel.translateX = -this.pageWidth * 2 + panelLeftGap;
         }
-        if (panel.right != null) {
+        if (panel.right != null && panel.right.panel) {
             panel.right.panel.translateX =
                 this.shrinkSliderPercent !== 100
                     ? -(
